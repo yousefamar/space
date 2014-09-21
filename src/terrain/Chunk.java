@@ -1,80 +1,46 @@
 package terrain;
 
-import java.io.*;
-
+import core.SaveManager;
+import core.World;
 import utils.Noise;
 
 public class Chunk {
 
-	public static final int cubicSize = 16;
+	//public static final int cubicSize = 16;
+	public static final int cubicBits = 4;
+	
+	public World world;
+	public final int x, y, z;
+	public Tile[][][] tiles = new Tile[0x1<<cubicBits][0x1<<cubicBits][0x1<<cubicBits];
 
-	public static final int testSeed = getSeed();
-	public final int x;
-	public final int y;
-	public final int z;
-	private byte tiles[][][] = new byte[cubicSize][cubicSize][cubicSize];
-
-	private static int getSeed() {
-		// long seed = null;
-		// if(seed == 0)
-		int seed = (int) System.currentTimeMillis();
-		// if not isinstance(seed, (int, long)):
-		// seed = hash(seed)
-		return seed;
-	}
-
-	public Chunk(int x, int y, int z) {
+	public Chunk(World world, int x, int y, int z) {
+		this.world = world;
 		this.x = x;
 		this.y = y;
 		this.z = z;
-		this.load();
+		SaveManager.load(this);
 	}
 
-	public byte getTile(int x, int y, int z) {
+	public Tile getTile(int x, int y, int z) {
 		try {
 			return tiles[x][y][z];
-		} catch (Exception e) {
-			// Tile is outside of chunk
-			return 1;
+		}catch (ArrayIndexOutOfBoundsException e) {
+			return world.getTile((0x1<<cubicBits)*this.x + x, (0x1<<cubicBits)*this.y + y, (0x1<<cubicBits)*this.z + z);
 		}
 	}
-
-	private void load() {
-		try {
-			DataInputStream in = new DataInputStream(new FileInputStream("data"
-					+ File.separator + "saves" + File.separator + "world1"
-					+ File.separator + "map" + File.separator + x + y + z
-					+ ".chunk"));
-			for (int x = 0; x < Chunk.cubicSize; x++)
-				for (int y = 0; y < Chunk.cubicSize; y++)
-					for (int z = 0; z < Chunk.cubicSize; z++)
-						tiles[x][y][z] = in.readByte();
-			in.close();
-		} catch (IOException e) {
-			this.generate();
-			this.save();
-		}
+	
+	public void generate() {
+		int cubicCunkSize = (0x1<<cubicBits);
+		for (int x = 0; x < cubicCunkSize; x++)
+			for (int y = 0; y < cubicCunkSize; y++)
+				for (int z = 0; z < cubicCunkSize; z++)
+					tiles[x][y][z] = new Tile(this, (Noise.triLerpaDerp(world.seed, this.x+(float)x/(cubicCunkSize-1), this.y+(float)y/(cubicCunkSize-1), this.z+(float)z/(cubicCunkSize-1))-(((float)y/(cubicCunkSize-1))-0.5))>0?1:0, x, y, z, (byte) 0);
 	}
-
-	private void generate() {
-		for (int x = 0; x < Chunk.cubicSize; x++)
-			for (int y = 0; y < Chunk.cubicSize; y++)
-				for (int z = 0; z < Chunk.cubicSize; z++)
-					tiles[x][y][z] = (byte) ((Noise.triLerpaDerp(testSeed, this.x+(float)x/15, this.y+(float)y/15, this.z+(float)z/15)-(((float)y/15)-0.5))>0?1:0);
-	}
-
-	private void save() {
-		try {
-			DataOutputStream out = new DataOutputStream(new FileOutputStream(
-					"data" + File.separator + "saves" + File.separator
-							+ "world1" + File.separator + "map"
-							+ File.separator + x + y + z + ".chunk"));
-			for (int x = 0; x < Chunk.cubicSize; x++)
-				for (int y = 0; y < Chunk.cubicSize; y++)
-					for (int z = 0; z < Chunk.cubicSize; z++)
-						out.writeByte(tiles[x][y][z]);
-			out.close();
-		} catch (IOException e) {
-		}
+	
+	public void updateTileEnvs() {
+		for (int x = 0; x < (0x1<<cubicBits); x++)
+			for (int y = 0; y < (0x1<<cubicBits); y++)
+				for (int z = 0; z < (0x1<<cubicBits); z++)
+					tiles[x][y][z].updateEnv();
 	}
 }
